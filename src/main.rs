@@ -22,8 +22,18 @@ async fn run() -> anyhow::Result<()> {
     let args = MFMArgs::parse();
     log::debug!("Args: {:?}", args);
 
+    let cancellation_token = tokio_util::sync::CancellationToken::new();
+    let import_cancellation_token = cancellation_token.clone();
+
+    tokio::spawn(async move {
+        tokio::signal::ctrl_c().await.unwrap();
+        log::info!("\nShutting down...");
+        cancellation_token.cancel();
+    });
+
+
     match args.command {
-        CommandType::Import(_import_command) => import::import().await?,
+        CommandType::Import(import_command) => import::import(import_cancellation_token, import_command.input_path, import_command.output_path, import_command.no_traverse).await?,
     }
 
     Ok(())

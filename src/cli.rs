@@ -17,10 +17,10 @@ pub(crate) enum CommandType {
 #[derive(Debug, Args)]
 pub(crate) struct ImportCommand {
     /// Input path
-    input_path: String,
+    pub input_path: String,
     /// Output path
-    output_path: String,
+    pub output_path: String,
     /// Do not traverse input directory
     #[arg(long, default_value = "false")]
-    no_traverse: bool,
+    pub no_traverse: bool,
 }
