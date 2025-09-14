@@ -1,6 +1,7 @@
 use std::{env, fs, path::PathBuf, pin::Pin};
 
 use anyhow::anyhow;
+use chrono::{DateTime, Local};
 use tokio_util::sync::CancellationToken;
 
 pub async fn import(cancellation_token: CancellationToken, input_path: String, output_path: String, no_traverse: bool) -> anyhow::Result<()> {
@@ -38,6 +39,11 @@ pub fn scan_dir(cancellation_token: &CancellationToken, root_path: PathBuf) -> P
 
             if path.is_dir() {
                 scan_dir(&token, path).await?;
+            } else {
+                let metadata = fs::metadata(path)?;
+                let modified = metadata.modified()?;
+                let local_dt: DateTime<Local> = modified.into();
+                println!("Local: {}", local_dt.format("%Y-%m-%d %H:%M:%S")); 
             }
         }
 
