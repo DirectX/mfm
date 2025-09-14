@@ -1,4 +1,4 @@
-use std::{env, fs, path::PathBuf, pin::Pin};
+use std::{env, fs, path::{Component, PathBuf}, pin::Pin};
 
 use anyhow::anyhow;
 use chrono::{DateTime, Local};
@@ -54,34 +54,68 @@ pub fn scan_dir(
             if path.is_dir() {
                 scan_dir(&token, path).await?;
             } else {
-                match get_comprehensive_exif_info(path.to_str().unwrap_or(".")) {
-                    Ok(exif_date_info) => {
-                        if let Some(creation_time) = exif_date_info.date_time_original {
-                            log::debug!("EXIF: {:?}", creation_time);
-                            
-                            // For debug
-                            let metadata = fs::metadata(path)?;
-                            let modified = metadata.modified()?;
-                            let local_dt: DateTime<Local> = modified.into();
-                            log::debug!("FS: {}", local_dt.format("%Y-%m-%d %H:%M:%S"));
-                        } else {
-                            let metadata = fs::metadata(path)?;
-                            let modified = metadata.modified()?;
-                            let local_dt: DateTime<Local> = modified.into();
-                            log::debug!("FS: {}", local_dt.format("%Y-%m-%d %H:%M:%S"));
-                        }
-                    }
-                    Err(err) => {
-                        log::warn!("{}", err);
-                        let metadata = fs::metadata(path)?;
-                        let modified = metadata.modified()?;
-                        let local_dt: DateTime<Local> = modified.into();
-                        log::debug!("FS: {}", local_dt.format("%Y-%m-%d %H:%M:%S"));
-                    }
-                };
+                if let Some(ext) = path.extension() {
+                    println!("Extension: {}", ext.to_string_lossy());
+
+                    let upper_folders = get_upper_folders(&path, 3);
+                    log::debug!("{:?}", upper_folders);
+    
+                    let dst_file_name = get_file_name(&path)?;
+                    log::debug!("{} -> {}", path.display(), dst_file_name);
+                }
             }
         }
 
         Ok(())
     })
+}
+
+pub fn get_file_name(src_path: &PathBuf) -> anyhow::Result<String> {
+    match get_comprehensive_exif_info(src_path.to_str().unwrap_or(".")) {
+        Ok(exif_date_info) => {
+            if let Some(local_creation_time) = exif_date_info.date_time_original {
+                log::debug!("EXIF: {}", local_creation_time.format("%Y%m%d_%H%M%S"));
+                Ok(format!("123"))
+            } else {
+                let metadata = fs::metadata(src_path)?;
+                let modified = metadata.modified()?;
+                let local_modified_time: DateTime<Local> = modified.into();
+                log::debug!("FS: {}", local_modified_time.format("%Y%m%d_%H%M%S"));
+                Ok(format!("456"))
+            }
+        }
+        Err(err) => {
+            log::warn!("{}", err);
+            let metadata = fs::metadata(src_path)?;
+            let modified = metadata.modified()?;
+            let local_modified_time: DateTime<Local> = modified.into();
+            log::debug!("FS: {}", local_modified_time.format("%Y%m%d_%H%M%S"));
+            Ok(format!("789"))
+        }
+    }
+}
+
+pub fn get_upper_folders(path: &PathBuf, n: usize) -> Vec<String> {
+    let components: Vec<_> = path.components()
+        .filter_map(|comp| {
+            if let Component::Normal(os_str) = comp {
+                os_str.to_str().map(|s| s.to_string())
+            } else {
+                None
+            }
+        })
+        .collect();
+    
+    // Get the last n directories (excluding the filename)
+    let dir_count = if path.is_file() { 
+        components.len().saturating_sub(1) // Exclude filename
+    } else { 
+        components.len() 
+    };
+    
+    if dir_count >= n {
+        components[dir_count - n..dir_count].to_vec()
+    } else {
+        components[..dir_count].to_vec()
+    }
 }
