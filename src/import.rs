@@ -57,11 +57,11 @@ pub fn scan_dir(
                 if let Some(ext) = path.extension() {
                     println!("Extension: {}", ext.to_string_lossy());
 
-                    let upper_folders = get_upper_folders(&path, 3);
-                    log::debug!("{:?}", upper_folders);
+                    let (upper_folders, filename) = extract_path_components(&path, 3);
+                    log::debug!("{:?}, {}", upper_folders, filename);
     
-                    let dst_file_name = get_file_name(&path)?;
-                    log::debug!("{} -> {}", path.display(), dst_file_name);
+                    let dst_filename = get_filename(&path)?;
+                    log::debug!("{} -> {}", path.display(), dst_filename);
                 }
             }
         }
@@ -70,7 +70,7 @@ pub fn scan_dir(
     })
 }
 
-pub fn get_file_name(src_path: &PathBuf) -> anyhow::Result<String> {
+pub fn get_filename(src_path: &PathBuf) -> anyhow::Result<String> {
     match get_comprehensive_exif_info(src_path.to_str().unwrap_or(".")) {
         Ok(exif_date_info) => {
             if let Some(local_creation_time) = exif_date_info.date_time_original {
@@ -95,7 +95,36 @@ pub fn get_file_name(src_path: &PathBuf) -> anyhow::Result<String> {
     }
 }
 
-pub fn get_upper_folders(path: &PathBuf, n: usize) -> Vec<String> {
+/// Extracts the upper-level directory names from a file path.
+///
+/// # Arguments
+///
+/// * `path` - A reference to a `PathBuf` containing the file path to analyze.
+///            Should be an absolute or relative path to a file or directory.
+/// * `levels` - The number of directory levels to extract from the end of the path.
+///              For example, `2` would extract the last 2 directory names before the filename.
+///
+/// # Returns
+///
+/// A tuple containing:
+/// * `Vec<String>` - The extracted directory names in order from parent to child
+/// * `String` - The filename (including extension) or empty string if no filename
+///
+/// # Examples
+///
+/// ```
+/// use std::path::PathBuf;
+/// 
+/// let path = PathBuf::from("/a/b/c/file.jpg");
+/// let (dirs, filename) = extract_path_components(&path, 2);
+/// assert_eq!(dirs, vec!["b", "c"]);
+/// assert_eq!(filename, "file.jpg");
+/// ```
+fn extract_path_components(path: &PathBuf, levels: usize) -> (Vec<String>, String) {
+     let filename_string = path.file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("");
+
     let components: Vec<_> = path.components()
         .filter_map(|comp| {
             if let Component::Normal(os_str) = comp {
@@ -113,9 +142,9 @@ pub fn get_upper_folders(path: &PathBuf, n: usize) -> Vec<String> {
         components.len() 
     };
     
-    if dir_count >= n {
-        components[dir_count - n..dir_count].to_vec()
+    if dir_count >= levels {
+        (components[dir_count - levels..dir_count].to_vec(), filename_string.to_owned())
     } else {
-        components[..dir_count].to_vec()
+        (components[..dir_count].to_vec(), filename_string.to_owned())
     }
 }
