@@ -4,7 +4,7 @@ use anyhow::anyhow;
 use chrono::{DateTime, Local};
 use tokio_util::sync::CancellationToken;
 
-use crate::exif::get_comprehensive_exif_info;
+use crate::{exif::get_comprehensive_exif_info, utils::{get_mediatype, normalize_extension}};
 
 pub async fn import(
     cancellation_token: CancellationToken,
@@ -55,7 +55,11 @@ pub fn scan_dir(
                 scan_dir(&token, path).await?;
             } else {
                 if let Some(ext) = path.extension() {
-                    println!("Extension: {}", ext.to_string_lossy());
+                    let extension = normalize_extension(ext);
+                    log::debug!("Extension: {}", extension);
+
+                    let mediatype = get_mediatype(extension);
+                    log::debug!("Mediatype: {}", mediatype);
 
                     let (upper_folders, filename) = extract_path_components(&path, 3);
                     log::debug!("{:?}, {}", upper_folders, filename);
@@ -85,7 +89,7 @@ pub fn get_filename(src_path: &PathBuf) -> anyhow::Result<String> {
             }
         }
         Err(err) => {
-            log::warn!("{}", err);
+            log::debug!("EXIF error: {}, falling back to file stat", err);
             let metadata = fs::metadata(src_path)?;
             let modified = metadata.modified()?;
             let local_modified_time: DateTime<Local> = modified.into();

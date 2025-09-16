@@ -4,6 +4,7 @@ use crate::cli::{CommandType, MFMArgs};
 
 pub mod cli;
 pub mod exif;
+pub mod utils;
 pub mod import;
 
 #[tokio::main]
