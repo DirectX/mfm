@@ -19,7 +19,10 @@ pub async fn import(
         Ok(path) => path,
         Err(_) => {
             // If folder doesn't exist
-            env::current_dir()?.join(&output_path)
+            let output_path = env::current_dir()?.join(&output_path);
+            fs::create_dir_all(&output_path)?;
+            println!("Created directories!");
+            PathBuf::from(output_path)
         }
     };
 
@@ -49,7 +52,6 @@ pub fn scan_dir(
 
             let entry = entry_result?;
             let path = entry.path();
-            log::debug!("{}", path.display());
 
             if path.is_dir() {
                 scan_dir(&token, path).await?;
